@@ -15,25 +15,75 @@ namespace RSA_Chat
     {
         ChatControl ChatControl;
 
+        public delegate void DUpdateUser();
+        public DUpdateUser UpdateUsers;
+        public int CurrentSession { private set; get; }
+
+
         public MainForm(string text)
         {
-            InitializeComponent();
             ChatControl = new ChatControl(this);
+            InitializeComponent();
             ChatControl.MyName = text;
-            richTextBox_mess.Text = ChatControl.MyIp.ToString();
+            CurrentSession = -1;
+            ChatControl.SendEnterAlert();
+
+            UpdateUsers = UpdateUserList;
+        }
+
+        public void ClearSession()
+        {
+            CurrentSession = -1;
         }
 
         private void button_send_Click(object sender, EventArgs e)
         {
-            ChatControl.SendEnterAlert();
-            if (textBox_message.Text == "")
+            if (textBox_message.Text == "" || CurrentSession == -1)
                 return;
-
+            ChatControl.SendMessage(textBox_message.Text, CurrentSession);
+            ChangeUserSession(CurrentSession.ToString());
+            textBox_message.Clear();
         }
 
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
-            this.Owner.Close();
+            Application.Exit();
+        }
+
+        private void listView_users_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (listView_users.SelectedItems.Count > 0)              
+                ChangeUserSession(listView_users.SelectedItems[0].SubItems[1].Text);
+        }
+
+        public void ChangeUserSession(string index)
+        {
+            int idx = int.Parse(index);
+            CurrentSession = idx;
+            richTextBox_mess.Clear();
+            foreach (Session.MesField mes in ChatControl.UsersList[idx].Session.Messages)
+            {
+                richTextBox_mess.Text += mes.user + ": ";
+                richTextBox_mess.Text += mes.mes + "\n";
+            }
+            ChatControl.UsersList[idx].Session.ReadMessage();
+            UpdateUserList();
+#if DEBUG
+            Console.WriteLine("Session changed");
+#endif
+        }
+
+        public void UpdateUserList() //обновление списка пользователей на экране
+        {
+            listView_users.Items.Clear();
+            foreach (User item in ChatControl.UsersList)
+            {
+                ListViewItem view = new ListViewItem();
+
+                view.Text = item.Name + "(" + item.Session.UnreadMes + ")";
+                view.SubItems.Add(ChatControl.UsersList.IndexOf(item).ToString());
+                listView_users.Items.Add(view);
+            }
         }
     }
 }
