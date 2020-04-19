@@ -16,7 +16,7 @@ namespace RSA_Chat
 
         string PublicKey;
         string PrivateKey;
-        Socket MySocket;
+        UdpClient MyClient;
         public IPAddress MyIp;
         Task listeningTask;
 
@@ -43,9 +43,8 @@ namespace RSA_Chat
                     break;
                 }
             }
-            MySocket = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
-            MySocket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
-            MySocket.Bind(new IPEndPoint(MyIp, 12345));
+            MyClient = new UdpClient(new IPEndPoint(MyIp, 12345));
+            MyClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
             listeningTask = new Task(Listen);
             listeningTask.Start();
         }
@@ -54,8 +53,8 @@ namespace RSA_Chat
         {
             try
             {
-                string Mes = "EnterAlert;" + PublicKey + ";" + MyName;
-                MySocket.SendTo(Encoding.ASCII.GetBytes(Mes), new IPEndPoint(IPAddress.Broadcast, 12345));
+                byte[] Mes = Encoding.ASCII.GetBytes("EnterAlert;" + PublicKey + ";" + MyName);
+                MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
             {
@@ -67,8 +66,8 @@ namespace RSA_Chat
         {
             try
             {
-                string Mes = "ExitAlert;" + PublicKey + ";" + MyName;
-                MySocket.SendTo(Encoding.ASCII.GetBytes(Mes), new IPEndPoint(IPAddress.Broadcast, 12345));
+                byte[] Mes = Encoding.ASCII.GetBytes("ExitAlert;" + PublicKey + ";" + MyName);
+                MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
             {
@@ -80,8 +79,8 @@ namespace RSA_Chat
         {
             try
             {
-                string Mes = "EnterAlert;" + PublicKey + ";" + MyName;
-                MySocket.SendTo(Encoding.ASCII.GetBytes(Mes), new IPEndPoint(ip, 12345));
+                byte[] Mes = Encoding.ASCII.GetBytes("ResponceAlert;" + PublicKey + ";" + MyName);
+                MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
             {
@@ -96,7 +95,7 @@ namespace RSA_Chat
 
             try
             {
-                MySocket.SendTo(Mes, new IPEndPoint(usr.Address, 12345));
+                MyClient.Send(Mes, Mes.Length, new IPEndPoint(usr.Address, 12345));
             }
             catch (Exception ex)
             {
@@ -108,7 +107,6 @@ namespace RSA_Chat
         byte[] DecodeMessage(byte[] mes)
         {
             RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024);
-            Console.WriteLine(PublicKey);
             RSA.FromXmlString(PrivateKey);
             return RSA.Decrypt(mes, false);
         }
@@ -117,7 +115,7 @@ namespace RSA_Chat
         {
             RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024);
             RSA.FromXmlString(key);
-            return RSA.Decrypt(mes, false); 
+            return RSA.Encrypt(mes, false); 
         }
 
         private void Listen()
@@ -128,21 +126,14 @@ namespace RSA_Chat
                 {
                     // получаем сообщение
                     StringBuilder Builder = new StringBuilder();
-                    int bytes = 0; // количество полученных байтов
-                    byte[] data = new byte[4096]; // буфер для получаемых данных
                     //адрес, с которого пришли данные
-                    EndPoint RemoteIp = new IPEndPoint(IPAddress.Any, 0);
-
-                    do
-                    {                      
-                        bytes = MySocket.ReceiveFrom(data, ref RemoteIp);
-                        Builder.Append(Encoding.ASCII.GetString(data, 0, bytes));                     
-                    }
-                    while (MySocket.Available > 0);
+                    IPEndPoint RemoteIp = new IPEndPoint(IPAddress.Any, 0);
+                   
+                    byte[] data = MyClient.Receive(ref RemoteIp);
+                    Builder.Append(Encoding.ASCII.GetString(data));                     
 
                     // получаем данные о подключении
                     IPEndPoint remoteFullIp = RemoteIp as IPEndPoint;
-                    //IPEndPoint remoteFullIp = (IPEndPoint)MySocket.RemoteEndPoint;
 
                     if(!remoteFullIp.Address.Equals(MyIp))
                     {
@@ -172,14 +163,24 @@ namespace RSA_Chat
 #endif
                                 ExitHandler(remoteFullIp.Address);
                             }
+                            else if (message[0] == "ResponceAlert")
+                            {
+#if DEBUG
+                                Console.WriteLine(DateTime.Now.ToLongTimeString() +
+                                    " Get Responce by " +
+                                    remoteFullIp.Address.ToString() + "(" +
+                                    message[2] + ")");
+#endif
+                                ResponceHandler(message, remoteFullIp.Address);
+                            }
                             else
                             {
-                                MessageHandeler(Encoding.ASCII.GetBytes(Builder.ToString()), remoteFullIp.Address);
+                                MessageHandeler(data, remoteFullIp.Address);
                                 continue;
                             }                   
                         }
                         else
-                            MessageHandeler(Encoding.ASCII.GetBytes(Builder.ToString()), remoteFullIp.Address);
+                            MessageHandeler(data, remoteFullIp.Address);
                     }
                 }
             }
@@ -198,6 +199,7 @@ namespace RSA_Chat
                 if (usr.Address.Equals(ip))
                 {
                     usr.UpdateKey(mes[1]);
+                    usr.UpdateName(mes[2]);
                     UserExist = true;
                     return;
                 }
@@ -207,7 +209,29 @@ namespace RSA_Chat
             {
                 User temp = new User(mes[2], ip, mes[1]);
                 UsersList.Add(temp);
-                SendResponse(ip);
+            }
+
+            SendResponse(ip);
+            mainForm.Invoke(mainForm.UpdateUsers);
+        }
+
+        void ResponceHandler(List<string> mes, IPAddress ip) //обработка сообщения о входе
+        {
+            bool UserExist = false;
+            foreach (User usr in UsersList)
+            {
+                if (usr.Address.Equals(ip))
+                {
+                    usr.UpdateKey(mes[1]);
+                    UserExist = true;
+                    return;
+                }
+            }
+
+            if (!UserExist)
+            {
+                User temp = new User(mes[2], ip, mes[1]);
+                UsersList.Add(temp);
             }
 
             mainForm.Invoke(mainForm.UpdateUsers);
@@ -251,7 +275,8 @@ namespace RSA_Chat
             {
                 user.Session.Messages.Add(new Session.MesField(user.Name, Encoding.ASCII.GetString(DecodeMessage(mes))));
                 if (UsersList.IndexOf(user) != mainForm.CurrentSession)
-                    user.Session.NewMessage();               
+                    user.Session.NewMessage();
+                mainForm.UpdateSession(UsersList.IndexOf(user).ToString());
             }
             mainForm.Invoke(mainForm.UpdateUsers);
         }
@@ -302,6 +327,10 @@ namespace RSA_Chat
         public void UpdateKey(string key)
         {
             this.Key = key;
+        }
+        public void UpdateName(string name)
+        {
+            this.Name = name;
         }
     }
 

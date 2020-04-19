@@ -24,5 +24,16 @@ namespace RSA_Chat
             mainForm.Show();
             this.Hide();
         }
+
+        private void LoginForm_Load(object sender, EventArgs e)
+        {
+            textBox_Name.Focus();
+        }
+
+        private void textBox_Name_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == Convert.ToChar(Keys.Return))
+                button_Enter_Click(new object(), new EventArgs());
+        }
     }
 }

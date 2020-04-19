@@ -42,6 +42,7 @@
             this.textBox_Name.Name = "textBox_Name";
             this.textBox_Name.Size = new System.Drawing.Size(169, 30);
             this.textBox_Name.TabIndex = 0;
+            this.textBox_Name.KeyPress += new System.Windows.Forms.KeyPressEventHandler(this.textBox_Name_KeyPress);
             // 
             // label1
             // 
@@ -84,8 +85,10 @@
             this.Controls.Add(this.label1);
             this.Controls.Add(this.textBox_Name);
             this.FormBorderStyle = System.Windows.Forms.FormBorderStyle.FixedDialog;
+            this.MaximumSize = new System.Drawing.Size(275, 274);
             this.Name = "LoginForm";
             this.Text = "Вход в чат";
+            this.Load += new System.EventHandler(this.LoginForm_Load);
             this.ResumeLayout(false);
             this.PerformLayout();
 

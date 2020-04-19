@@ -16,7 +16,9 @@ namespace RSA_Chat
         ChatControl ChatControl;
 
         public delegate void DUpdateUser();
+        public delegate void DUpdateSession(string idx);
         public DUpdateUser UpdateUsers;
+        public DUpdateSession UpdateSession;
         public int CurrentSession { private set; get; }
 
 
@@ -29,6 +31,7 @@ namespace RSA_Chat
             ChatControl.SendEnterAlert();
 
             UpdateUsers = UpdateUserList;
+            UpdateSession = ChangeUserSession;
         }
 
         public void ClearSession()
@@ -47,6 +50,7 @@ namespace RSA_Chat
 
         private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
         {
+            ChatControl.SendExitAlert();
             Application.Exit();
         }
 
@@ -66,16 +70,15 @@ namespace RSA_Chat
                 richTextBox_mess.Text += mes.user + ": ";
                 richTextBox_mess.Text += mes.mes + "\n";
             }
+            label_user.Text = ChatControl.UsersList[idx].Name;
             ChatControl.UsersList[idx].Session.ReadMessage();
             UpdateUserList();
-#if DEBUG
-            Console.WriteLine("Session changed");
-#endif
         }
 
         public void UpdateUserList() //обновление списка пользователей на экране
         {
-            listView_users.Items.Clear();
+            listView_users.Clear();
+
             foreach (User item in ChatControl.UsersList)
             {
                 ListViewItem view = new ListViewItem();
@@ -84,6 +87,17 @@ namespace RSA_Chat
                 view.SubItems.Add(ChatControl.UsersList.IndexOf(item).ToString());
                 listView_users.Items.Add(view);
             }
+        }
+
+        private void textBox_message_KeyPress(object sender, KeyPressEventArgs e)
+        {
+            if (e.KeyChar == Convert.ToChar(Keys.Return))
+                button_send_Click(new object(), new EventArgs());
+        }
+
+        private void richTextBox_mess_TextChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }
