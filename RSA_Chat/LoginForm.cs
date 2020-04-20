@@ -17,9 +17,11 @@ namespace RSA_Chat
             InitializeComponent();
         }
 
-        private void button_Enter_Click(object sender, EventArgs e)
+        private void button_Enter_Click(object sender, EventArgs e) //нажатие кнопки входа
         {
-            MainForm mainForm = new MainForm(textBox_Name.Text);
+            if (textBox_Name.Text == "")
+                return;
+            MainForm mainForm = new MainForm(textBox_Name.Text); //создать окно чата
             mainForm.Owner = this;
             mainForm.Show();
             this.Hide();
@@ -30,7 +32,7 @@ namespace RSA_Chat
             textBox_Name.Focus();
         }
 
-        private void textBox_Name_KeyPress(object sender, KeyPressEventArgs e)
+        private void textBox_Name_KeyPress(object sender, KeyPressEventArgs e) //нажатие клавиши при фокусе на поле ввода логина
         {
             if (e.KeyChar == Convert.ToChar(Keys.Return))
                 button_Enter_Click(new object(), new EventArgs());

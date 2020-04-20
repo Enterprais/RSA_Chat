@@ -12,28 +12,26 @@ namespace RSA_Chat
 {
     class ChatControl
     {
-        MainForm mainForm;
+        MainForm mainForm; //форма чата
 
-        string PublicKey;
-        string PrivateKey;
-        UdpClient MyClient;
-        public IPAddress MyIp;
-        Task listeningTask;
-
-
-        public List<User> UsersList { get; private set; }
-
-        public string MyName {get; set;}
+        string PublicKey; //публичный ключ
+        string PrivateKey; //секретный ключ
+        UdpClient MyClient; //клиент Udp
+        public IPAddress MyIp; //ip адрес данного компьютера
+        Task listeningTask; //поток для обработки входящих пакетов
+        public string MyName {get; set;} //имя пользователя в чате
+        public List<User> UsersList { get; private set; } //список актинвных пользователей
 
         public ChatControl(MainForm mainForm)
         {
+            //создание ключей шифрования
             RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024);
             PublicKey = RSA.ToXmlString(false);
             PrivateKey = RSA.ToXmlString(true);
 
             this.mainForm = mainForm;
             UsersList = new List<User>();
-
+            //считывание ip адреса компьютера
             IPAddress[] localIPs = Dns.GetHostAddresses(Dns.GetHostName());
             foreach (IPAddress addr in localIPs)
             {
@@ -43,17 +41,28 @@ namespace RSA_Chat
                     break;
                 }
             }
-            MyClient = new UdpClient(new IPEndPoint(MyIp, 12345));
+            //создание клиента Upd
+
+            try
+            {
+                MyClient = new UdpClient(new IPEndPoint(MyIp, 12345));
+            }
+            catch (Exception)
+            {
+                MessageBox.Show("Порт приложения уже занят!");
+                Application.Exit();
+            }
             MyClient.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, 1);
+            //запуск потока обработки входящих пакетов
             listeningTask = new Task(Listen);
             listeningTask.Start();
         }
 
-        public void SendEnterAlert()
+        public void SendEnterAlert() //отправка сообщения о входе
         {
             try
             {
-                byte[] Mes = Encoding.ASCII.GetBytes("EnterAlert;" + PublicKey + ";" + MyName);
+                byte[] Mes = Encoding.Unicode.GetBytes("EnterAlert;" + PublicKey + ";" + MyName);
                 MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
@@ -62,11 +71,11 @@ namespace RSA_Chat
             }
         }
 
-        public void SendExitAlert()
+        public void SendExitAlert() //отправка сообщения о выходе
         {
             try
             {
-                byte[] Mes = Encoding.ASCII.GetBytes("ExitAlert;" + PublicKey + ";" + MyName);
+                byte[] Mes = Encoding.Unicode.GetBytes("ExitAlert;" + PublicKey + ";" + MyName);
                 MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
@@ -75,11 +84,11 @@ namespace RSA_Chat
             }
         }
 
-        public void SendResponse(IPAddress ip)
+        public void SendResponse(IPAddress ip) //отправка ответа на сообщение о входе
         {
             try
             {
-                byte[] Mes = Encoding.ASCII.GetBytes("ResponceAlert;" + PublicKey + ";" + MyName);
+                byte[] Mes = Encoding.Unicode.GetBytes("ResponceAlert;" + PublicKey + ";" + MyName);
                 MyClient.Send(Mes, Mes.Length, new IPEndPoint(IPAddress.Broadcast, 12345));
             }
             catch (Exception ex)
@@ -88,10 +97,10 @@ namespace RSA_Chat
             }
         }
 
-        public void SendMessage(string message, int index)
+        public void SendMessage(string message, int index) //отправка сообщения из чата
         {
             User usr = UsersList[index];
-            byte[] Mes = EncodeMessage(Encoding.ASCII.GetBytes(message), usr.Key);
+            byte[] Mes = EncodeMessage(Encoding.Unicode.GetBytes(message), usr.Key);
 
             try
             {
@@ -104,48 +113,41 @@ namespace RSA_Chat
             usr.Session.Messages.Add(new Session.MesField(MyName, message));
         }
 
-        byte[] DecodeMessage(byte[] mes)
+        byte[] DecodeMessage(byte[] mes) //дешифрование сообщения
         {
             RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024);
             RSA.FromXmlString(PrivateKey);
             return RSA.Decrypt(mes, false);
         }
 
-        byte[] EncodeMessage(byte[] mes, string key)
+        byte[] EncodeMessage(byte[] mes, string key) //шифрование сообщения
         {
             RSACryptoServiceProvider RSA = new RSACryptoServiceProvider(1024);
             RSA.FromXmlString(key);
             return RSA.Encrypt(mes, false); 
         }
 
-        private void Listen()
+        private void Listen() //чтение входящих сообщений
         {
             try
             {
                 while (true)
-                {
-                    // получаем сообщение
-                    StringBuilder Builder = new StringBuilder();
-                    //адрес, с которого пришли данные
-                    IPEndPoint RemoteIp = new IPEndPoint(IPAddress.Any, 0);
+                {                    
+                    StringBuilder Builder = new StringBuilder();             
+                    IPEndPoint remoteFullIp = new IPEndPoint(IPAddress.Any, 0);//адрес, с которого пришли данные
                    
-                    byte[] data = MyClient.Receive(ref RemoteIp);
-                    Builder.Append(Encoding.ASCII.GetString(data));                     
+                    byte[] data = MyClient.Receive(ref remoteFullIp); //считывание сообщения
+                    Builder.Append(Encoding.Unicode.GetString(data));                     
 
-                    // получаем данные о подключении
-                    IPEndPoint remoteFullIp = RemoteIp as IPEndPoint;
-
-                    if(!remoteFullIp.Address.Equals(MyIp))
+                    if(!remoteFullIp.Address.Equals(MyIp)) //если сообщение пришло не со своего адреса
                     {
-                        //mainForm.richTextBox_mess.Text += Builder.ToString() + "\n";
-                        List<string> message = Builder.ToString().Split(';').ToList();
+                        List<string> message = Builder.ToString().Split(';').ToList(); //делим сообщение по разделителю
 
                         if (message.Count == 3)
                         {
-                            if(message[0] == "EnterAlert")
+                            if(message[0] == "EnterAlert") //если оповещение о входе
                             {
 #if DEBUG
-
                                 Console.WriteLine(DateTime.Now.ToLongTimeString() +
                                     " Get Enter by " +
                                     remoteFullIp.Address.ToString() + "(" +
@@ -153,7 +155,7 @@ namespace RSA_Chat
 #endif
                                 EnterHandler(message, remoteFullIp.Address);
                             }
-                            else if(message[0] == "ExitAlert")
+                            else if(message[0] == "ExitAlert") //если оповещение о выходе
                             {
 #if DEBUG
                                 Console.WriteLine(DateTime.Now.ToLongTimeString() +
@@ -163,7 +165,7 @@ namespace RSA_Chat
 #endif
                                 ExitHandler(remoteFullIp.Address);
                             }
-                            else if (message[0] == "ResponceAlert")
+                            else if (message[0] == "ResponceAlert") //если ответы на оповещение о входе
                             {
 #if DEBUG
                                 Console.WriteLine(DateTime.Now.ToLongTimeString() +
@@ -173,14 +175,13 @@ namespace RSA_Chat
 #endif
                                 ResponceHandler(message, remoteFullIp.Address);
                             }
-                            else
+                            else //иначе просто сообщение
                             {
                                 MessageHandeler(data, remoteFullIp.Address);
                                 continue;
                             }                   
                         }
-                        else
-                            MessageHandeler(data, remoteFullIp.Address);
+                        else MessageHandeler(data, remoteFullIp.Address);
                     }
                 }
             }
@@ -194,98 +195,97 @@ namespace RSA_Chat
         void EnterHandler(List<string> mes, IPAddress ip) //обработка сообщения о входе
         {         
             bool UserExist = false;
-            foreach (User usr in UsersList)
+            foreach (User usr in UsersList) //проход по всем пользователям
             {
-                if (usr.Address.Equals(ip))
+                if (usr.Address.Equals(ip)) //если пользователь уже есть
                 {
-                    usr.UpdateKey(mes[1]);
+                    //обновить ключ и имя
+                    usr.UpdateKey(mes[1]); 
                     usr.UpdateName(mes[2]);
                     UserExist = true;
                     return;
                 }
             }
 
-            if(!UserExist)
+            if(!UserExist) //если пользвотеля нет, создать нового
             {
                 User temp = new User(mes[2], ip, mes[1]);
                 UsersList.Add(temp);
             }
 
-            SendResponse(ip);
-            mainForm.Invoke(mainForm.UpdateUsers);
+            SendResponse(ip); //отправить ответ на сообщение о входе
+            mainForm.Invoke(mainForm.UpdateUsers); //обновить список пользователей
         }
 
-        void ResponceHandler(List<string> mes, IPAddress ip) //обработка сообщения о входе
+        void ResponceHandler(List<string> mes, IPAddress ip) //обработка ответа на сообщения о входе
         {
             bool UserExist = false;
-            foreach (User usr in UsersList)
+            foreach (User usr in UsersList) //проход по всем пользователям
             {
-                if (usr.Address.Equals(ip))
+                if (usr.Address.Equals(ip)) //если пользователь уже есть
                 {
+                    //обновить ключ и имя
                     usr.UpdateKey(mes[1]);
                     UserExist = true;
                     return;
                 }
             }
 
-            if (!UserExist)
+            if (!UserExist) //если пользвотеля нет, создать нового
             {
                 User temp = new User(mes[2], ip, mes[1]);
                 UsersList.Add(temp);
             }
-
-            mainForm.Invoke(mainForm.UpdateUsers);
+            mainForm.Invoke(mainForm.UpdateUsers); //обновить список пользователей
         }
-
-
 
         void ExitHandler(IPAddress ip) //обработка сообщения о выходе
         {
             User del = null;
-            foreach (User usr in UsersList)
+            foreach (User usr in UsersList) //проход по всем пользователям
             {
-                if (usr.Address.Equals(ip))
+                if (usr.Address.Equals(ip)) //если пользователь есть, запомнить его
                 {
                     del = usr;
                     break;
                 }
             }
-            if (del != null)
+            if (del != null) //если пользователь найден
             {
-                if (UsersList.IndexOf(del) == mainForm.CurrentSession)
+                if (UsersList.IndexOf(del) == mainForm.CurrentSession) //удалить пользователя
                     mainForm.ClearSession();
 
                 UsersList.Remove(del);
             }
-            mainForm.Invoke(mainForm.UpdateUsers);
+            mainForm.Invoke(mainForm.UpdateUsers); //обновить список пользователей
         } 
 
-        void MessageHandeler(byte[] mes, IPAddress ip)
+        void MessageHandeler(byte[] mes, IPAddress ip) //обработка сообщения из чата
         {
             User user = null;
-            foreach (User usr in UsersList)
+            foreach (User usr in UsersList) //проход по всем пользователям
             {
-                if (usr.Address.Equals(ip))
+                if (usr.Address.Equals(ip)) //если пользователь есть, то запомнить его
                 {
                     user = usr;
                     break;
                 }
             }
-            if (user != null)
+            if (user != null) //если пользователь есть
             {
-                user.Session.Messages.Add(new Session.MesField(user.Name, Encoding.ASCII.GetString(DecodeMessage(mes))));
-                if (UsersList.IndexOf(user) != mainForm.CurrentSession)
-                    user.Session.NewMessage();
-                mainForm.UpdateSession(UsersList.IndexOf(user).ToString());
+                user.Session.Messages.Add(new Session.MesField(user.Name, Encoding.Unicode.GetString(DecodeMessage(mes)))); //добавить сообщение в чат
+                if (UsersList.IndexOf(user) != mainForm.CurrentSession) //если открыт чат с другим пользователем
+                    user.Session.NewMessage(); //прибавить непрочитанное сообщение
+                mainForm.UpdateSession(UsersList.IndexOf(user).ToString()); //обновить окно чата
             }
-            mainForm.Invoke(mainForm.UpdateUsers);
+            mainForm.Invoke(mainForm.UpdateUsers); //обновить окно пользователей
         }
     }
 
-    class Session
+    class Session //класс состояния чата с пользователем 
     {
-        public List<MesField> Messages { get; private set; }
-        public uint UnreadMes { get; private set; }
+        public List<MesField> Messages { get; private set; } //сообщения
+        public uint UnreadMes { get; private set; } //кол-во непрочитанных сообщений
 
         public Session()
         {
@@ -293,10 +293,10 @@ namespace RSA_Chat
             UnreadMes = 0;
         }
 
-        public class MesField
+        public class MesField //класс компонентов сообщения
         {
-            public string user { get; private set; }
-            public string mes { get; private set; }
+            public string user { get; private set; } //имя пользователя отправившего сообщение
+            public string mes { get; private set; } //сообщение пользователя
 
             public MesField(string user, string mes)
             {
@@ -305,16 +305,16 @@ namespace RSA_Chat
             }
         }
 
-        public void NewMessage() { UnreadMes++; }
-        public void ReadMessage() { UnreadMes = 0; }
-    }
+        public void NewMessage() { UnreadMes++; } //увеличить счетчик непрочитанных сообщений
+        public void ReadMessage() { UnreadMes = 0; } //обнулить счетчик непрочитанных сообщений
+    } 
 
-    class User
+    class User //класс пользователя
     {
-        public string Name {get; private set; }
-        public IPAddress Address { get; private set; }
-        public string Key { get; private set; }
-        public Session Session { get; private set; }
+        public string Name { get; private set; }  //имя пользователя
+        public IPAddress Address { get; private set; } //ip адрес пользователя
+        public string Key { get; private set; } //публичный ключ пользователя
+        public Session Session { get; private set; } // состоние чата с пользвателем
 
         public User(string name, IPAddress ip, string key)
         {
@@ -324,11 +324,11 @@ namespace RSA_Chat
             this.Session = new Session();
         }
 
-        public void UpdateKey(string key)
+        public void UpdateKey(string key) //обновить публичный ключ
         {
             this.Key = key;
         }
-        public void UpdateName(string name)
+        public void UpdateName(string name) //обновить имя
         {
             this.Name = name;
         }

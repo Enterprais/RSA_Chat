@@ -31,9 +31,9 @@
             this.textBox_message = new System.Windows.Forms.TextBox();
             this.button_send = new System.Windows.Forms.Button();
             this.panel1 = new System.Windows.Forms.Panel();
+            this.richTextBox_mess = new System.Windows.Forms.RichTextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.listView_users = new System.Windows.Forms.ListView();
-            this.richTextBox_mess = new System.Windows.Forms.RichTextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.label_user = new System.Windows.Forms.Label();
             this.panel1.SuspendLayout();
@@ -42,7 +42,7 @@
             // textBox_message
             // 
             this.textBox_message.Location = new System.Drawing.Point(218, 531);
-            this.textBox_message.MaxLength = 150;
+            this.textBox_message.MaxLength = 64;
             this.textBox_message.Name = "textBox_message";
             this.textBox_message.Size = new System.Drawing.Size(547, 20);
             this.textBox_message.TabIndex = 1;
@@ -67,6 +67,15 @@
             this.panel1.Size = new System.Drawing.Size(628, 490);
             this.panel1.TabIndex = 4;
             // 
+            // richTextBox_mess
+            // 
+            this.richTextBox_mess.BorderStyle = System.Windows.Forms.BorderStyle.None;
+            this.richTextBox_mess.Location = new System.Drawing.Point(-1, -1);
+            this.richTextBox_mess.Name = "richTextBox_mess";
+            this.richTextBox_mess.Size = new System.Drawing.Size(628, 492);
+            this.richTextBox_mess.TabIndex = 0;
+            this.richTextBox_mess.Text = "";
+            // 
             // label1
             // 
             this.label1.AutoSize = true;
@@ -89,15 +98,6 @@
             this.listView_users.UseCompatibleStateImageBehavior = false;
             this.listView_users.View = System.Windows.Forms.View.List;
             this.listView_users.SelectedIndexChanged += new System.EventHandler(this.listView_users_SelectedIndexChanged);
-            // 
-            // richTextBox_mess
-            // 
-            this.richTextBox_mess.BorderStyle = System.Windows.Forms.BorderStyle.None;
-            this.richTextBox_mess.Location = new System.Drawing.Point(-1, -1);
-            this.richTextBox_mess.Name = "richTextBox_mess";
-            this.richTextBox_mess.Size = new System.Drawing.Size(628, 492);
-            this.richTextBox_mess.TabIndex = 0;
-            this.richTextBox_mess.Text = "";
             // 
             // label2
             // 
